@@ -1,0 +1,14 @@
+{
+  "seed": 11,
+  "learning_rate": 0.001,
+  "weight_decay": 0.0001,
+  "batch_size": 64,
+  "epochs": 100,
+  "patience": 10,
+  "source_head_weight": 0.1,
+  "false_negative_cost": 5,
+  "false_positive_cost": 1,
+  "review_cost": 0.2,
+  "review_budget": 0.25,
+  "positive_acceptance_floor": 0.5
+}
