@@ -2,25 +2,53 @@
 
 Implementation of selective ECG interpretation under label-policy shift.
 
+## Installation
+
+Use Python 3.10+. Create and activate a virtual environment before installing:
+
 ```bash
+python -m venv .venv
+source .venv/bin/activate
 python -m pip install -e .
-python -m selectiveecg prepare --manifest records.csv
-python -m selectiveecg train --variant masked
-python -m selectiveecg evaluate
 ```
+
+In PowerShell, replace the activation line with `.venv\Scripts\Activate.ps1`.
+
+## Data and preprocessing
 
 Sources are [PTB-XL 1.0.3](https://physionet.org/content/ptb-xl/1.0.3/) and the `cpsc_2018` subset of [Challenge 2020](https://physionet.org/content/challenge-2020/1.0.2/). Export `records.csv` with `patient,source,record,codes,eligibility,split`. `record` is a WFDB basename; `codes` is a JSON list of documented annotation codes; `eligibility` is a four-bit JSON list from the declared output policy, never from reference labels. Query order is AFIB, CRBBB, CLBBB, 1AVB. `--mapping` accepts a JSON query-to-positive-code-list mapping for a verified external vocabulary. An explicit NORM with no contradictory target code supplies negatives; all other unsupported query targets remain unknown.
 
 Use PTB-XL folds 1–8 for train plus patient-disjoint validation, fold 9 split by patient into `calibration` and `policy`, and fold 10 as `test`. All repeated recordings remain grouped. The optional `closed_world` column applies only to explicitly declared source observation-head targets. `rail_mv`, when supplied from acquisition metadata, enables the clipping rule. Preparation reads physical waveform units, harmonizes the 12-lead order, resamples to 100 Hz and keeps missing/padding masks. Longer recordings use a fixed mean of 10-second window logits. Quality review requires at least three invalid leads, based on missingness, two-second flatline and known acquisition rails.
 
-The ResNet-18 encoder uses four width stages and two residual blocks per stage; values and availability masks form its 24 input channels. Canonical BCE masks unknown targets and weights recordings by patient. `--variant observation-head` adds documented source-vocabulary supervision; `unknown-negative` and `intersection` implement the corresponding training controls. `--omit-positive 0.2`, `0.4` or `0.6` performs a seeded training-only omission intervention. Each variant needs its own output directory. The intersection control retains the complete request set and marks untrained queries semantically unresolved.
+```bash
+python -m selectiveecg prepare --manifest records.csv --config config.json
+```
 
-Calibration is query-wise supported-label temperature scaling. Operating-policy patients select probability and confidence thresholds by five-pass deterministic coordinate search. Selection minimizes weighted decision cost plus review cost subject to the report budget and per-query positive acceptance floor. Any unresolved query reviews the complete report. An empty feasible set is reported; test thresholds are never adjusted to hide it.
+## Training and inference
 
-`config.json` controls seed, optimizer, source-head weight, false-negative/false-positive/review costs, review budget and positive-acceptance floor. Outputs include model/normalization files, history, policy and query metrics, report-level predictions and `misses.png`. Metrics retain separate denominators for unreviewed misses, routing sensitivity, positive acceptance, accepted-set sensitivity/specificity and all-negative false-positive reporting. AUROC/AUPRC/Brier/ECE and calibration intercept/slope use only supported references; accepted subsets are reported separately. Workload counts complete ECG reports once and also reports patients with any reviewed encounter. Unknown references never enter discrimination or calibration as negatives.
+```bash
+python -m selectiveecg train --config config.json --output outputs --variant masked
+```
 
-The observation-head vocabulary is stored in the prepared data. Its auxiliary loss balances source contributions after patient weighting; the canonical task and inference gates do not use the patient's source annotations. Preserve the same source calibration and policy records when appending external test records for frozen transfer. Semantic eligibility remains external policy metadata throughout.
+## Evaluation
 
-## Patient/cell analysis
+```bash
+python -m selectiveecg evaluate --config config.json --output outputs
+python -m selectiveecg.analysis --input outputs/reports.npz --output outputs/patient_analysis.json --draws 2000
+```
 
-Run `python -m selectiveecg.analysis --draws 2000` after evaluation to compute grouped bootstrap intervals and the supported subgroup or repeatability summaries. The input/output paths can be set with `--input` and `--output`.
+## Ablations
+
+Supported controls: `masked`, `observation-head`, `unknown-negative`, `intersection`. Reuse the same inputs, seed and budget. For retrained controls, evaluate the corresponding saved model.
+
+```bash
+python -m selectiveecg train --config config.json --output outputs/masked --variant masked
+```
+
+## Outputs
+
+`data/ecg.npz` holds waveforms/masks. `outputs/` contains model/normalization/training records, `reports.npz`, `metrics.json`, `misses.png` and optional patient analysis.
+
+Keep `config.json` with the run; it contains model/data settings and the seed where the CLI does not expose one. Use separate output directories for different seeds/conditions.
+
+Source inspection: Python 3.13.5, numpy 2.1.3, pandas 2.2.3, scipy 1.15.3, scikit-learn 1.6.1, torch 2.7.1+cu118, matplotlib 3.10.0 (installed versions inspected). Checks covered Python syntax, configuration parsing and CLI arguments. No training, full evaluation or CI was run in this update.
