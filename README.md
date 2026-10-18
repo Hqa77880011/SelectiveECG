@@ -34,8 +34,9 @@ python -m selectiveecg train --config config.json --output outputs --variant mas
 
 ```bash
 python -m selectiveecg evaluate --config config.json --output outputs
-python -m selectiveecg.analysis --input outputs/reports.npz --output outputs/patient_analysis.json --draws 2000
 ```
+
+When `metrics.json` records a feasible policy and `reports.npz` is produced, run `python -m selectiveecg.analysis --input outputs/reports.npz --output outputs/patient_analysis.json --draws 2000`. An infeasible policy writes only its metrics record.
 
 ## Ablations
 
@@ -51,4 +52,4 @@ python -m selectiveecg train --config config.json --output outputs/masked --vari
 
 Keep `config.json` with the run; it contains model/data settings and the seed where the CLI does not expose one. Use separate output directories for different seeds/conditions.
 
-Source inspection: Python 3.13.5, numpy 2.1.3, pandas 2.2.3, scipy 1.15.3, scikit-learn 1.6.1, torch 2.7.1+cu118, matplotlib 3.10.0 (installed versions inspected). Checks covered Python syntax, configuration parsing and CLI arguments. No training, full evaluation or CI was run in this update.
+Source inspection: Python 3.13.5, numpy 2.1.3, pandas 2.2.3, scipy 1.15.3, scikit-learn 1.6.1, torch 2.7.1+cu118, matplotlib 3.10.0 (installed versions inspected). Checks covered Python syntax, configuration parsing and CLI arguments. No training or full evaluation was run. The GitHub Actions workflow checks source syntax and package installation plus undefined-name/import linting.
